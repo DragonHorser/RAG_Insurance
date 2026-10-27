@@ -1,0 +1,43 @@
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules import chat_thread
+from app.modules.chat_thread.models import ChatThread
+from app.modules.chat_thread.repository import ChatThreadRepository
+from app.modules.chat_thread.exceptions import ChatThreadNotFoundError
+
+class ChatThreadService:
+    def __init__(self,session:AsyncSession):
+        self.session = session
+        self.repository = ChatThreadRepository(session)
+
+    async def create_chat_thread(self,user_id:int,title:str):
+        async with self.session.begin():
+            chat_thread = ChatThread(user_id =user_id ,title = title)
+            await self.repository.create(chat_thread)
+            return chat_thread
+
+    async def list_by_user(self, user_id):
+        return await self.repository.list_by_user(user_id)
+
+    async def rename_chat_thread(self,thread_id:UUID,user_id:int,title:str):
+        async with self.session.begin():
+            # 1. 根据用户id和会话id，查询会话
+            chat_thread = await self.repository.find_owned(thread_id,user_id)
+            if chat_thread is None:
+                # 为None，说明不存在，或者不属于当前用户，抛出异常
+                # raise: 就是指扔出去一个异常，代码会立刻终止，结束运行，把异常扔给调用者
+                raise ChatThreadNotFoundError
+            # 2. 修改它的标题
+            chat_thread.title = title
+            # 3. 立即执行update语句 脏跟踪更新数据
+            await self.session.flush()
+            # 4. 重新加载最新的会话数据
+            await self.session.refresh(chat_thread) #最新数据重新加载
+        return chat_thread
+
+    async def delete_chat_thread(self,thread_id:UUID,user_id:int):
+        async with self.session.begin():
+            thread_id = await self.repository.find_owned(thread_id,user_id)
+            if thread_id is None:
+                raise ChatThreadNotFoundError
+            await self.repository.delete(thread_id)
