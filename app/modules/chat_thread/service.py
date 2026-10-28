@@ -1,14 +1,21 @@
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
+from langchain_core.messages import AIMessage, HumanMessage
+from app.modules.chat_thread.schemas import (
+    ChatHistoryResponse,
+    ChatMessageResponse,
+)
 from app.modules import chat_thread
 from app.modules.chat_thread.models import ChatThread
 from app.modules.chat_thread.repository import ChatThreadRepository
 from app.modules.chat_thread.exceptions import ChatThreadNotFoundError
 
 class ChatThreadService:
-    def __init__(self,session:AsyncSession):
+    def __init__(self,session:AsyncSession,agent: CompiledStateGraph):
         self.session = session
         self.repository = ChatThreadRepository(session)
+        self.agent = agent
 
     async def create_chat_thread(self,user_id:int,title:str):
         async with self.session.begin():
@@ -37,7 +44,41 @@ class ChatThreadService:
 
     async def delete_chat_thread(self,thread_id:UUID,user_id:int):
         async with self.session.begin():
+            # 1.校验会话归属
             thread_id = await self.repository.find_owned(thread_id,user_id)
             if thread_id is None:
                 raise ChatThreadNotFoundError
             await self.repository.delete(thread_id)
+            # 2.删除Checkpointer中的会话状态
+            await self.agent.checkpointer.adelete_thread(str(thread_id))
+            # 3.删除会话元数据
+            await self.repository.delete(thread_id)
+
+    async def get_history(
+            self,
+            thread_id: UUID,
+            user_id: int,
+    ) -> ChatHistoryResponse:
+        # 1.校验会话归属
+        thread = await self.repository.find_owned(thread_id, user_id)
+        if thread is None:
+            raise ChatThreadNotFoundError
+
+        # 2.读取Agent最新状态
+        config = {"configurable": {"thread_id": str(thread_id)}}
+        snapshot = await self.agent.aget_state(config)
+
+        # 3.只保留用户消息和AI消息
+        messages = []
+        for message in snapshot.values.get("messages", []):
+            if isinstance(message, HumanMessage):
+                role = "user"
+            elif isinstance(message, AIMessage):
+                role = "assistant"
+            else:
+                continue
+
+            if message.text:
+                messages.append(ChatMessageResponse(role=role, content=message.text))
+
+        return ChatHistoryResponse(thread_id=thread_id, messages=messages)
