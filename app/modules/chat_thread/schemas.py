@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 class ChatThreadCreate(BaseModel):
     # Pydantic：用于对数据进行校验
-    # Field：对数据做更详细的要求。
+    # Field(字段)：对数据做更详细的要求。
     #   default：如果没有提供值，就采用默认值；
     #   min_length：传值的话，值的长度最小是1
     #   max_length：传值的话，值的长度最大是200
@@ -18,6 +18,7 @@ class ChatThreadCreate(BaseModel):
     #   当前端传参title进来时，先把值交给此函数
     @field_validator("title",mode = 'before')
     @classmethod
+    #   把前端传来的title进行去空格操作
     def normalize_title(cls,value:str) -> str:
         return value.strip()
 

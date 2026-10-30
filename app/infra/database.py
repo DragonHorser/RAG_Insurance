@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 # 1. 数据库连接地址
 if not settings.db or not settings.db.url:
-    raise RuntimeError("db.url未配置，初始化数据库失败！")
+    raise RuntimeError("db.url未配置，初始化数据库失败！❌")
 DATABASE_URL = settings.db.url
 
 # 2. 创建异步数据库引擎
@@ -44,7 +44,7 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 async def close_database() -> None:
     """ 关闭数据库引擎并释放连接池中的连接。应在应用关闭时调用。"""
     await engine.dispose()
-    logger.info("数据库连接池已关闭~")
+    logger.info("数据库连接池已关闭~❎")
 
 # 6. 数据库健康检查
 async def check_database() -> None:

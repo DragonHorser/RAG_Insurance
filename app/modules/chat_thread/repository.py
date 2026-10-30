@@ -9,6 +9,7 @@ class ChatThreadRepository:
         self.session = session
 
     async def create(self,chat_thread:ChatThread):
+        # 把对象数据插入表中。只负责把对象加入当前 Session，事务由 Service 统一管理。
         self.session.add(chat_thread)
 
     async def list_by_user(self,user_id:int):

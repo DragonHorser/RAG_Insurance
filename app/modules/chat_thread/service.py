@@ -6,7 +6,7 @@ from app.modules.chat_thread.schemas import (
     ChatHistoryResponse,
     ChatMessageResponse,
 )
-from app.modules import chat_thread
+
 from app.modules.chat_thread.models import ChatThread
 from app.modules.chat_thread.repository import ChatThreadRepository
 from app.modules.chat_thread.exceptions import ChatThreadNotFoundError
@@ -18,9 +18,13 @@ class ChatThreadService:
         self.agent = agent
 
     async def create_chat_thread(self,user_id:int,title:str):
+        # 用上下文管理，开启事务，运行完成，自动commit，出现异常，自动rollback
         async with self.session.begin():
+            # 创建会话对象，封装要插入的数据,其中id自动由await self.repository.create(chat_thread)生成
             chat_thread = ChatThread(user_id =user_id ,title = title)
+            # 调用repository的add方法，将数据插入数据库
             await self.repository.create(chat_thread)
+            # 返回新创建的会话对象 供router层的实例对象使用
             return chat_thread
 
     async def list_by_user(self, user_id):
