@@ -46,7 +46,6 @@ class DatabaseSettings(EnvSettings):
             path=self.name,
         ).encoded_string()
 
-    #
     @computed_field
     # 把这个函数当成属性来使用
     @property

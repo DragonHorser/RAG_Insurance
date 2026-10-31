@@ -14,7 +14,8 @@ router = APIRouter(prefix="/api/v1/chat-threads",tags=["会话管理"])
 # 知识补充：
 # Annotated 是 Python 标准库 typing 提供的类型工具，它的核心作用给类型附加额外的元数据
 # Annotated[T, metadata] 表示一个类型 T，同时携带一段元数据 metadata。
-# 如：x: Annotated[int, "这是一个整数"]。这里的 "这是一个整数" 不会影响类型本身，只是附加说明。FastAPI 正是利用这个机制，把 Header、Query、Path、Body 等作为元数据嵌入到参数类型中。
+# 如：x: Annotated[int, "这是一个整数"]。这里的 "这是一个整数" 不会影响类型本身，只是附加说明。
+# FastAPI 正是利用这个机制，把 Header、Query、Path、Body 等作为元数据嵌入到参数类型中。
 # Header: 声明请求头中数据
 # Query: 声明query中的数据
 # Path: 声明请求路径中的数据
@@ -60,5 +61,5 @@ async def get_chat_history(
     service: ChatThreadService = Depends(get_service),
 ):
     """查询指定会话的历史消息"""
-
-    return await service.get_history(thread_id, user_id)
+    chat_history = service.get_history(thread_id,user_id)
+    return await chat_history

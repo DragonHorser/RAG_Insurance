@@ -1,24 +1,23 @@
-from contextlib import asynccontextmanager
 import sys
+from contextlib import asynccontextmanager
+
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.agents.insurance_advisor import init_insurance_agent
+from app.core.config import settings
+from app.core.exceptions import ApplicationError
+from app.core.logging import configure_logging, get_logger
 from app.infra.checkpointer import (
     close_checkpointer,
     init_checkpointer,
 )
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from app.agents.insurance_advisor import init_insurance_agent
 from app.modules.chat.router import router as chat_router
-from app.core.config import settings
-from app.core.logging import configure_logging, get_logger
-import uvicorn
-
-from app.modules.product.router import router as product_router
-from app.modules.chat_thread_old.router import router as chat_thread_router1
 from app.modules.chat_thread.router import router as chat_thread_router
-from app.core.exceptions import ApplicationError
-
-
+from app.modules.product.router import router as product_router
+from app.rag import close_rag # 导入模块就会初始化
 
 # 初始化日志系统
 configure_logging(settings.logging.level)
@@ -34,14 +33,16 @@ async def lifespan(app: FastAPI):
         await check_database()
         # 2.初始化Checkpointer
         checkpointer = await init_checkpointer()
-        # 3.初始化保险顾问Agent
+        # 3.初始化保险顾问Agent,存储起来
         app.state.agent = init_insurance_agent(checkpointer)
         yield
     finally:
         logger.info("应用关闭中... ")
-        # 4.关闭Checkpointer连接池
+        # 4.关闭RAG资源
+        close_rag()
+        # 5.关闭Checkpointer连接池
         await close_checkpointer()
-        # 5.关闭SQLAlchemy连接池
+        # 6.关闭SQLAlchemy连接池
         await close_database()
 
 # 创建 app 后注册路由

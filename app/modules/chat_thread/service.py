@@ -42,7 +42,7 @@ class ChatThreadService:
             chat_thread.title = title
             # 3. 立即执行update语句 脏跟踪更新数据
             await self.session.flush()
-            # 4. 重新加载最新的会话数据
+            # 4. 重新加载最新会话数据
             await self.session.refresh(chat_thread) #最新数据重新加载
         return chat_thread
 
@@ -53,7 +53,7 @@ class ChatThreadService:
             if thread_id is None:
                 raise ChatThreadNotFoundError
             await self.repository.delete(thread_id)
-            # 2.删除Checkpointer中的会话状态
+            # 2.+a 异步删除Checkpointer中的会话状态 返回字符串类型
             await self.agent.checkpointer.adelete_thread(str(thread_id))
             # 3.删除会话元数据
             await self.repository.delete(thread_id)
@@ -63,22 +63,34 @@ class ChatThreadService:
             thread_id: UUID,
             user_id: int,
     ) -> ChatHistoryResponse:
-        # 1.校验会话归属
-        thread = await self.repository.find_owned(thread_id, user_id)
-        if thread is None:
+        """
+        service层获取某单个会话历史
+        :param thread_id: 前端请求会话id
+        :param user_id: 数据库中用于校验的id
+        :return: schemas响应类按前端要求格式返回数据
+        """
+        # 1.校验会话归属 防止越权 :根据前端送来的会话id与数据库存在的会话id做比较，
+        # 若等则返回一个会话对象，
+        chat_thread = await self.repository.find_owned(thread_id, user_id)
+        if chat_thread is None:
             raise ChatThreadNotFoundError
 
-        # 2.读取Agent最新状态
+        # 2.读取Agent最新状态,查询聊天记录
         config = {"configurable": {"thread_id": str(thread_id)}}
+        #聊天记录的快照
         snapshot = await self.agent.aget_state(config)
 
         # 3.只保留用户消息和AI消息
         messages = []
-        for message in snapshot.values.get("messages", []):
+        #在聊天记录的快照中获取名为messages的值即为聊天记录，若没有记录则赋给一个空列表
+        message_list = snapshot.values.get("messages",[])
+        for message in message_list:
+            #isinstance : 判断参数一是否是参数二的实例化对象
             if isinstance(message, HumanMessage):
                 role = "user"
             elif isinstance(message, AIMessage):
                 role = "assistant"
+            #其他的任何消息直接跳过不要获取下一条消息continue
             else:
                 continue
 

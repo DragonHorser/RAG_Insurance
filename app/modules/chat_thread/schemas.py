@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
-from typing import Any, Literal
+from typing import  Literal
 
 
 class ChatThreadCreate(BaseModel):
@@ -30,7 +30,7 @@ class ChatThreadResponse(BaseModel):
 
 class ChatMessageResponse(BaseModel):
     """历史消息"""
-
+    #只允许role的值为user、assistent，用字面量限制符Literal
     role: Literal["user", "assistant"]
     content: str
 

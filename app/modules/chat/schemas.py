@@ -2,9 +2,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-
-
-
 class ChatRequest(BaseModel):
     """基础对话请求"""
 
