@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any
 
 from langchain.tools import tool, ToolRuntime
 from fastapi.encoders import jsonable_encoder
@@ -13,10 +14,10 @@ from app.modules.insurance_plan.service import InsurancePlanService
 
 import json
 from langgraph.config import get_stream_writer # 【新增导入】
-
+from langgraph.types import interrupt
 
 @tool
-async def query_candidate_products(
+async def query_candidate_product_old(
     categories: list[str],
     premium_min: Decimal | None = None,
     limit_per_category: int = 5
@@ -36,12 +37,34 @@ async def query_candidate_products(
         service = ProductService(session)
         # 2.调用Service，得到候选产品
         products: list[Product] = await service.list_candidates(
-            categories,
-            premium_min,
-            limit_per_category
+            categories = categories,
+            premium_min = premium_min,
+            limit_per_category = limit_per_category,
         )
         # 3.返回给AI，最好把Product处理成json返回
         return jsonable_encoder(products)
+
+@tool
+async def query_candidate_products(
+    categories: list[str],
+    max_premium_budget:Decimal | None,
+    limit_per_categroy: int,
+)->Any:
+    """
+    根据险种保费条件查询用于推荐的保险产品，当用户咨询具体产品或者需要推荐保险产品的时候使用该方法。
+    Args:
+        :param categories: 产品分类列表，可选值为medical、critical_illness、life、accident。
+        :param max_premium_budget: 最低保费上线，可选参数，只返回最低保费小于该值的保险产品。
+        :param limit_per_categroy: 每个险种最多返回的产品数量，可选参数，默认为返回5个保险产品。
+    """
+    async with AsyncSessionFactory() as session:
+        service = ProductService(session)
+        product = await service.list_candidates(
+            categories,
+            max_premium_budget,
+            limit_per_categroy,
+        )
+        return product
 
 @tool
 async def save_insurance_plan(
@@ -52,6 +75,17 @@ async def save_insurance_plan(
     保存当前用户的保险推荐方案。
     当你查询完候选产品后，根据用户画像、候选产品生成保险组合方案，保存到数据库
     """
+
+    decision = interrupt(  # 中断执行，把方案发给用户看看
+        {
+            "plan": plan.model_dump(mode="json"),
+            "confirm_info": "是否确认保存这份保险推荐方案？",
+            "action": ["approve", "reject"],
+        }
+    )
+    # 如果用户拒绝，则拒绝向下执行
+    if decision.get("action") != "approve":
+        return {"message": f"用户取消保存保险方案, 原因:{decision.get('reject_reason')}"}
 
     async with AsyncSessionFactory() as session:
         service = InsurancePlanService(session)

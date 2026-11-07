@@ -8,7 +8,7 @@ class ProductRepository:
     def __init__(self,session:AsyncSession):
         self.session = session
 
-    async def find_by_category(self,categroy:str | None) -> list[Product]:
+    async def find_by_category(self,categroy:str | None = None) -> list[Product]:
         where_clause = [Product.status == 'active']
         if categroy:
             where_clause.append(Product.category == categroy)

@@ -32,12 +32,15 @@ class ParentChunkRetriever:
 
     async def retrieve(self, query: str, k: int, product_id: int) -> list[ParentChunk]:
         # 1.在指定产品内混合检索并重排，得到子块
+        #   去向量库里检索相关的子块的内容列表
         child_chunks = await self.vector_store.asimilarity_search(
+            #提问的问题
             query=query,
             # 精排后获取分数最高的前k数量
             k=k,
             # 召回侯选文档数量
             fetch_k=10,
+            #过滤条件
             expr=f"product_id == {product_id}",
             reranker=create_reranker(query),
         )

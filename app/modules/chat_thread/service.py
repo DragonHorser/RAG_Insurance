@@ -79,6 +79,8 @@ class ChatThreadService:
         config = {"configurable": {"thread_id": str(thread_id)}}
         #聊天记录的快照
         snapshot = await self.agent.aget_state(config)
+        #从State中取出additional_info，再根据每条AI消息的id找到对应引用
+        additional_infos = snapshot.values.get("additional_info", {})
 
         # 3.只保留用户消息和AI消息
         messages = []
@@ -95,6 +97,23 @@ class ChatThreadService:
                 continue
 
             if message.text:
-                messages.append(ChatMessageResponse(role=role, content=message.text))
+                messages.append(ChatMessageResponse(
+                    role=role,
+                    content=message.text,
+                    additional_info=additional_infos.get(message.id),))
 
-        return ChatHistoryResponse(thread_id=thread_id, messages=messages)
+        # 4.处理interrupt
+        interrupts = None
+        if hasattr(snapshot, 'interrupts') and snapshot.interrupts:
+            interrupts = snapshot.interrupts
+        elif hasattr(snapshot, 'tasks') and snapshot.tasks:
+            for task in snapshot.tasks:
+                if hasattr(task, 'interrupts') and task.interrupts:
+                    interrupts = task.interrupts
+                    break
+
+        return ChatHistoryResponse(
+            thread_id=thread_id,
+            messages=messages,
+            interrupt=interrupts[0].value if interrupts else None,
+            )

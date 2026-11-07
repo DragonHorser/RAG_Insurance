@@ -4,13 +4,14 @@ from pydantic import BaseModel, Field, field_validator
 from typing import  Literal
 
 
+
 class ChatThreadCreate(BaseModel):
     # Pydantic：用于对数据进行校验
     # Field(字段)：对数据做更详细的要求。
     #   default：如果没有提供值，就采用默认值；
     #   min_length：传值的话，值的长度最小是1
     #   max_length：传值的话，值的长度最大是200
-    title : str = Field(default="新的会话",min_length=1,max_lenth = 200)
+    title : str = Field(default="新的会话",min_length=1,max_length = 200)
 
     # 对title的值提供更复杂的校验逻辑
     #   field：是对哪个字段做校验，现在是对title的值做校验
